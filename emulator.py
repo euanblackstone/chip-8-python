@@ -1,7 +1,7 @@
 import cpu
 
 '''
-TODO:   write out create_gui and start_emu_loop methods
+TODO:   write out create_gui (might not actually need this) and start_emu_loop methods
         actually create the screen and keypad classes and add them to constructor
 '''
 
