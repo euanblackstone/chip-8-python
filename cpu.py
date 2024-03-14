@@ -1,18 +1,18 @@
 import random
 
 '''
-TODO:   opcode 0x00e0
-        opcode 0xD000
-        opcode 0xE000
+TODO:   opcode 0xE000
         opcode 0xF00A
 '''
 
 
 class cpu:
-    bytes_in_memory = 4096
-    number_of_v_registers = 16
+    def __init__(self, renderer):
+        bytes_in_memory = 4096
+        number_of_v_registers = 16
 
-    def __init__(self):
+        self.renderer = renderer
+
         self.memory = bytearray(bytes_in_memory)
         self.v_registers = bytearray(number_of_v_registers)
         #initializes list to have a len of 16, can change this to a proper stack if needed
@@ -85,9 +85,11 @@ class cpu:
             self.update_timers()
 
         #render to the screen
+        self.renderer.render()
         #play sound if including sound
 
     def execute_opcode(self, opcode):
+        print(opcode)
         x = ((opcode & 0x0F00) >> 8)
         y = ((opcode & 0x00F0) >>4)
 
@@ -95,8 +97,7 @@ class cpu:
             case 0x0000:
                 match (opcode):
                     case 0x00E0:
-                        #clear the renderer
-                        print("hi")
+                        self.renderer.clear()
                     case 0x00EE:
                         self.program_counter = self.stack.pop()
             
@@ -182,8 +183,20 @@ class cpu:
                 self.v_registers[x] = (random_number & (opcode & 0xFF))
 
             case 0xD000:
-                #display stuff
-                print("hi")
+                width = 8
+                height = (opcode & 0xF)
+
+                self.v_registers[0xF] = 0
+
+                for row in range(height):
+                    sprite = self.memory[self.i_register + row]
+
+                    for col in range(width):
+                        if (sprite & 0x80) > 0:
+                            if self.renderer.toggle_pixels(self.v_registers[x] + col, self.v_registers[y] + row):
+                                self.v_registers[0xF] = 1
+
+                        sprite <<= 1
 
             case 0xE000:
                 match (opcode & 0x00FF):
@@ -227,5 +240,3 @@ class cpu:
                 print("Received unknown opcode %s from program. Exiting." % opcode)
                 exit(1)
         
-
-cpu = cpu()
