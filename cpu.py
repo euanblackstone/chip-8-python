@@ -89,7 +89,7 @@ class cpu:
         #play sound if including sound
 
     def execute_opcode(self, opcode):
-        print(opcode)
+        print(hex(opcode))
         x = ((opcode & 0x0F00) >> 8)
         y = ((opcode & 0x00F0) >>4)
 

@@ -39,7 +39,7 @@ class emulator:
 
         run = True
         while run:
-            pygame.display.flip()
+            pygame.display.update()
 
             now = time.time_ns()
             self.delta += (now - then) / self.ns

@@ -6,8 +6,8 @@ TODO:   find a way to render pixels to a screen. I think pygame would be the bes
 SCREEN_WIDTH = 64
 SCREEN_HEIGHT = 32
 
-COLOR_BLACK = Color(0, 0, 0, 255)
-COLOR_WHITE = Color(255, 255, 255, 255)
+# COLOR_BLACK = Color(0, 0, 0, 255)
+# COLOR_WHITE = Color(255, 255, 255, 255)
 
 class screen:
     def __init__(self, scale_factor):
@@ -33,7 +33,7 @@ class screen:
     
     def clear(self):
         self.screen_pixels = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
-        self.screen.fill(COLOR_BLACK)
+        self.screen.fill((0, 0, 0))
 
     def update(self):
         display.flip()
@@ -48,14 +48,12 @@ class screen:
         if y >= SCREEN_HEIGHT:
             y = y % SCREEN_HEIGHT
 
-        self.screen_pixels[x][y] ^= True
+        self.screen_pixels[y][x] ^= True
 
-        return not self.screen_pixels[x][y]
+        return not self.screen_pixels[y][x]
 
     def render(self):
         for y in range(SCREEN_HEIGHT):
             for x in range(SCREEN_WIDTH):
-                if self.screen_pixels[x][y]:
-                    draw.rect(self.screen, COLOR_WHITE, (x*self.scale, y*self.scale, self.scale, self.scale))
-                else:
-                    draw.rect(self.screen, COLOR_BLACK, (x*self.scale, y*self.scale, self.scale, self.scale))
+                color = (255, 255, 255) if self.screen_pixels[y][x] == 1 else (0, 0, 0)
+                draw.rect(self.screen, color, (x * self.scale, y * self.scale, self.scale, self.scale))
