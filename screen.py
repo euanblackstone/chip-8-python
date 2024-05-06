@@ -9,7 +9,10 @@ SCREEN_HEIGHT = 32
 
 class screen:
     def __init__(self, scale_factor):
-        self.screen_pixels = [[False for x in range(SCREEN_HEIGHT)] for y in range(SCREEN_WIDTH)]
+        # self.screen_pixels = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+        self.current_frame = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+        self.previous_frame = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+
         self.scale = scale_factor
         self.scaled_screen_width = SCREEN_WIDTH * self.scale
         self.scaled_screen_height = SCREEN_HEIGHT * self.scale
@@ -30,7 +33,9 @@ class screen:
         return self.scaled_screen_height
     
     def clear(self):
-        self.screen_pixels = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+        # self.screen_pixels = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+        self.current_frame = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
+        self.previous_frame = [[False for x in range(SCREEN_WIDTH)] for y in range(SCREEN_HEIGHT)]
         self.screen.fill((0, 0, 0))
 
     def update(self):
@@ -46,12 +51,15 @@ class screen:
         if y >= SCREEN_HEIGHT:
             y = y % SCREEN_HEIGHT
 
-        self.screen_pixels[y][x] ^= True
+        self.current_frame[y][x] ^= True
 
-        return not self.screen_pixels[y][x]
+        return not self.current_frame[y][x]
 
     def render(self):
         for y in range(SCREEN_HEIGHT):
             for x in range(SCREEN_WIDTH):
-                color = (255, 255, 255) if self.screen_pixels[y][x] == 1 else (0, 0, 0)
-                draw.rect(self.screen, color, (x * self.scale, y * self.scale, self.scale, self.scale))
+                if self.current_frame[y][x] != self.previous_frame[y][x]:
+                    color = (255, 255, 255) if self.current_frame[y][x] == 1 else (0, 0, 0)
+                    draw.rect(self.screen, color, (x * self.scale, y * self.scale, self.scale, self.scale))
+        
+        self.previous_frame = [row[:] for row in self.current_frame]
