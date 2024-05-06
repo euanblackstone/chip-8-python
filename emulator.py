@@ -3,6 +3,7 @@ import pygame
 import time
 from cpu import cpu
 from screen import screen
+from keyboard import keyboard
 
 '''
 TODO:   write out create_gui (might not actually need this) and start_emu_loop methods
@@ -20,15 +21,15 @@ class emulator:
         # Might want to refactor this line
         self.delta = 0
 
-        #create screen, ketboard, and cpu
+        #create screen, keyboard, and cpu
         
 
         
         self.screen = screen(SCREEN_SCALE)
+        self.keypad = keyboard()
         # screen = pygame.display.set_mode((900, 500))
-        self.cpu = cpu(self.screen)
+        self.cpu = cpu(self.screen, self.keypad)
         
-        self.keypad = None
 
         self.cpu.load_fontset_into_memory()
         self.cpu.load_rom_into_memory(rom_file_name)
@@ -54,9 +55,9 @@ class emulator:
                     run = False
         pygame.quit()
 
-def main():
-    e = emulator(60, "./roms/IBM")
-    e.start_emulator_loop()
+# def main():
+#     e = emulator(60, "./roms/IBM")
+#     e.start_emulator_loop()
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

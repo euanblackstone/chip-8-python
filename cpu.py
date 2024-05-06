@@ -7,11 +7,12 @@ TODO:   opcode 0xE000
 
 
 class cpu:
-    def __init__(self, renderer):
+    def __init__(self, renderer, keyboard):
         bytes_in_memory = 4096
         number_of_v_registers = 16
 
         self.renderer = renderer
+        self.keyboard = keyboard
 
         self.memory = bytearray(bytes_in_memory)
         self.v_registers = bytearray(number_of_v_registers)
@@ -72,6 +73,9 @@ class cpu:
         if self.sound_timer > 0:
             self.sound_timer -= 1
 
+    def set_v_register(self, register, value):
+        self.v_registers[register] = (value & 0xFF)
+
     def emulate_cycle(self):
         i = 0
         while i < self.speed_of_emulation:
@@ -92,151 +96,153 @@ class cpu:
         print(hex(opcode))
         x = ((opcode & 0x0F00) >> 8)
         y = ((opcode & 0x00F0) >>4)
+        opcode_msb = opcode & 0xF000
 
-        match (opcode & 0xF000):
-            case 0x0000:
-                match (opcode):
-                    case 0x00E0:
-                        self.renderer.clear()
-                    case 0x00EE:
-                        self.program_counter = self.stack.pop()
-            
-            case 0x1000:
-                self.program_counter = (opcode & 0x0FFF)
+        if opcode_msb == 0x0000:
+            if opcode == 0x00E0:
+                self.renderer.clear()
+            elif opcode == 0x00EE:
+                self.program_counter = self.stack.pop()
 
-            case 0x2000:
-                self.stack.append(self.program_counter)
-                self.program_counter = (opcode & 0x0FFF)
+        elif opcode_msb == 0x1000:
+            self.program_counter = (opcode & 0x0FFF)
 
-            case 0x3000:
-                if self.v_registers[x] == (opcode & 0x00FF):
+        elif opcode_msb == 0x2000:
+            self.stack.append(self.program_counter)
+            self.program_counter = (opcode & 0x0FFF)
+
+        elif opcode_msb == 0x3000:
+            if self.v_registers[x] == (opcode & 0x00FF):
+                self.program_counter += 2
+
+        elif opcode_msb == 0x4000:
+            if self.v_registers[x] != (opcode & 0x00FF):
+                self.program_counter += 2
+
+        elif opcode_msb == 0x5000:
+            if self.v_registers[x] == self.v_registers[y]:
+                self.program_counter += 2
+
+        elif opcode_msb == 0x6000:
+            self.set_v_register(x, (opcode & 0x00FF))
+
+        elif opcode_msb == 0x7000:
+            self.set_v_register(x, (self.v_registers[x] + (opcode & 0x00FF)))
+
+        elif opcode_msb == 0x8000:
+            opcode_lsb = opcode & 0x000F
+
+            if opcode_lsb == 0x0:
+                self.set_v_register(x, self.v_registers[y])
+            elif opcode_lsb == 0x1:
+                self.set_v_register(x, (self.v_registers[x] | self.v_registers[y]))
+            elif opcode_lsb == 0x2:
+                self.set_v_register(x, (self.v_registers[x] & self.v_registers[y]))
+            elif opcode_lsb == 0x3:
+                self.set_v_register(x, (self.v_registers[x] ^ self.v_registers[y]))
+            elif opcode_lsb == 0x4:
+                sum = self.v_registers[x] + self.v_registers[y]
+
+                self.set_v_register(0xF, 0)
+
+                if sum > 0xFF:
+                    self.set_v_register(0xF, 1)
+
+                self.set_v_register(x, (sum & 0xFF))
+            elif opcode_lsb == 0x5:
+                self.set_v_register(0xF, 0)
+
+                if self.v_registers[x] > self.v_registers[y]:
+                    self.set_v_register(0xF, 1)
+
+                self.set_v_register(x, ((self.v_registers[x] - self.v_registers[y]) & 0xFF))
+            elif opcode_lsb == 0x6:
+                self.set_v_register(0xF, (self.v_registers[x] & 0x1))
+                
+                self.v_registers[x] >>= 1
+            elif opcode_lsb == 0x7:
+                self.set_v_register(0xF, 0)
+
+                if self.v_registers[y] > self.v_registers[x]:
+                    self.set_v_register(0xF, 1)
+
+                self.set_v_register(x, ((self.v_registers[y] - self.v_registers[x]) & 0xFF))
+            elif opcode_lsb == 0xE:
+                self.set_v_register(0xF, (self.v_registers[x] & 0x80))
+                self.v_registers[x] <<= 1
+
+        elif opcode_msb == 0x9000:
+            if self.v_registers[x] != self.v_registers[y]:
+                self.program_counter += 2
+
+        elif opcode_msb == 0xA000:
+            self.i_register = (opcode & 0x0FFF)
+
+        elif opcode_msb == 0xB000:
+            self.program_counter = ((opcode & 0x0FFF) + self.v_registers[0])
+
+        elif opcode_msb == 0xC000:
+            #might need to change the end of the range
+            random_number = random.randint(1, 0xFF)
+            self.set_v_register(x, (random_number & (opcode & 0xFF)))
+
+        elif opcode_msb == 0xD000:
+            width = 8
+            height = (opcode & 0xF)
+
+            self.set_v_register(0xF, 0)
+
+            for row in range(height):
+                sprite = self.memory[self.i_register + row]
+
+                for col in range(width):
+                    if (sprite & 0x80) > 0:
+                        if self.renderer.toggle_pixels(self.v_registers[x] + col, self.v_registers[y] + row):
+                            self.set_v_register(0xF, 1)
+
+                    sprite <<= 1
+
+        elif opcode_msb == 0xE000:
+            opcode_least_significant_two_bits = opcode & 0x00FF
+
+            if opcode_least_significant_two_bits == 0x009E:
+                if self.keyboard.get_value_from_key(self.v_registers[x]) == 1:
+                    self.program_counter += 2
+            elif opcode_least_significant_two_bits == 0x00A1:
+                if self.keyboard.get_value_from_key(self.v_registers[x]) == 0:
                     self.program_counter += 2
 
-            case 0x4000:
-                if self.v_registers[x] != (opcode & 0x00FF):
-                    self.program_counter += 2
+        elif opcode_msb == 0xF000:
+            opcode_least_significant_two_bits = opcode & 0x00FF
 
-            case 0x5000:
-                if self.v_registers[x] == self.v_registers[y]:
-                    self.program_counter += 2
+            if opcode_least_significant_two_bits == 0x0007:
+                self.set_v_register(x, self.delay_timer)
+            elif opcode_least_significant_two_bits == 0x000A:
+                #pause
+                self.is_program_paused = True
+                self.set_v_register(x, self.keyboard.wait_for_keypress())
+                self.is_program_paused = False
+            elif opcode_least_significant_two_bits == 0x0015:
+                self.delay_timer = self.v_registers[x]
+            elif opcode_least_significant_two_bits == 0x0018:
+                self.sound_timer = self.v_registers[x]
+            elif opcode_least_significant_two_bits == 0x001E:
+                self.i_register += self.v_registers[x]
+                self.i_register = (self.i_register & 0x0FFF)
+            elif opcode_least_significant_two_bits == 0x0029:
+                self.i_register = (self.v_registers[x] * 5)
+            elif opcode_least_significant_two_bits == 0x0033:
+                self.memory[self.i_register] = int(self.v_registers[x] / 100)
+                self.memory[self.i_register + 1] = int((self.v_registers[x] % 100) / 10)
+                self.memory[self.i_register + 2] = int(self.v_registers[x] % 10)
+            elif opcode_least_significant_two_bits == 0x0055:
+                for i in range(x + 1):
+                    self.memory[self.i_register + i] = self.v_registers[i]
+            elif opcode_least_significant_two_bits == 0x0065:
+                for i in range(x + 1):
+                    self.set_v_register(i, (self.memory[self.i_register + i]))
 
-            case 0x6000:
-                self.v_registers[x] = (opcode & 0x00FF)
-
-            case 0x7000:
-                self.v_registers[x] = (self.v_registers[x] + (opcode & 0x00FF))
-
-            case 0x8000:
-                match (opcode & 0x000F):
-                    case 0x0:
-                        self.v_registers[x] = self.v_registers[y]
-                    case 0x1:
-                        self.v_registers[x] = (self.v_registers[x] | self.v_registers[y])
-                    case 0x2:
-                        self.v_registers[x] = (self.v_registers[x] & self.v_registers[y])
-                    case 0x3:
-                        self.v_registers[x] = (self.v_registers[x] ^ self.v_registers[y])
-                    case 0x4:
-                        sum = self.v_registers[x] + self.v_registers[y]
-
-                        self.v_registers[0xF] = 0
-
-                        if sum > 0xFF:
-                            self.v_registers[0xF] = 1
-
-                        self.v_registers[x] = (sum & 0xFF)
-                    case 0x5:
-                        self.v_registers[0xF] = 0
-
-                        if self.v_registers[x] > self.v_registers[y]:
-                            self.v_registers[0xF] = 1
-
-                        self.v_registers[x] = ((self.v_registers[x] - self.v_registers[y]) & 0xFF)
-                    case 0x6:
-                        self.v_registers[0xF] = (self.v_registers[x] & 0x1)
-                        
-                        self.v_registers[x] >>= 1
-                    case 0x7:
-                        self.v_registers[0xF] = 0
-
-                        if self.v_registers[y] > self.v_registers[x]:
-                            self.v_registers[0xF] = 1
-
-                        self.v_registers[x] = ((self.v_registers[y] - self.v_registers[x]) & 0xFF)
-                    case 0xE:
-                        self.v_registers[0xF] = (self.v_registers[x] & 0x80)
-                        self.v_registers[x] <<= 1
-
-            case 0x9000:
-                if self.v_registers[x] != self.v_registers[y]:
-                    self.program_counter += 2
-
-            case 0xA000:
-                self.i_register = (opcode & 0x0FFF)
-
-            case 0xB000:
-                self.program_counter = ((opcode & 0x0FFF) + self.v_registers[0])
-
-            case 0xC000:
-                #might need to change the end of the range
-                random_number = random.randint(1, 0xFF)
-                self.v_registers[x] = (random_number & (opcode & 0xFF))
-
-            case 0xD000:
-                width = 8
-                height = (opcode & 0xF)
-
-                self.v_registers[0xF] = 0
-
-                for row in range(height):
-                    sprite = self.memory[self.i_register + row]
-
-                    for col in range(width):
-                        if (sprite & 0x80) > 0:
-                            if self.renderer.toggle_pixels(self.v_registers[x] + col, self.v_registers[y] + row):
-                                self.v_registers[0xF] = 1
-
-                        sprite <<= 1
-
-            case 0xE000:
-                match (opcode & 0x00FF):
-                    case 0x009E:
-                        #keyboard
-                        print("hi")
-                    case 0x00A1:
-                        #keyboard
-                        print("hi")
-
-            case 0xF000:
-                match (opcode & 0x00FF):
-                    case 0x0007:
-                        self.v_registers[x] = self.delay_timer
-                    case 0x000A:
-                        #pause
-                        self.is_program_paused = True
-                    case 0x0015:
-                        self.delay_timer = self.v_registers[x]
-                    case 0x0018:
-                        self.sound_timer = self.v_registers[x]
-                    case 0x001E:
-                        self.i_register += self.v_registers[x]
-                        self.i_register = (self.i_register & 0x0FFF)
-                    case 0x0029:
-                        self.i_register = (self.v_registers[x] * 5)
-                    case 0x0033:
-                        self.memory[self.i_register] = (self.v_registers[x] / 100)
-                        self.memory[self.i_register + 1] = ((self.v_registers[x] % 100) / 10)
-                        self.memory[self.i_register + 2] = (self.v_registers[x] % 10)
-                    case 0x0055:
-                        for i in range(x + 1):
-                            self.memory[self.i_register + i] = self.v_registers[i]
-                    case 0x0065:
-                        for i in range(x + 1):
-                            self.v_registers[i] = self.memory[self.i_register + i]
-
-
-                    
-            case _:
-                print("Received unknown opcode %s from program. Exiting." % opcode)
-                exit(1)
+        else:
+            print("Received unknown opcode %s from program. Exiting." % opcode)
+            exit(1)
         

@@ -1,8 +1,6 @@
 from pygame import display, Color, draw
 
-'''
-TODO:   find a way to render pixels to a screen. I think pygame would be the best way to do this
-'''
+
 SCREEN_WIDTH = 64
 SCREEN_HEIGHT = 32
 
