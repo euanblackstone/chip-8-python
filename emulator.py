@@ -53,11 +53,10 @@ class emulator:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key in self.keypad.key_map:
+                        self.keypad.key_pressed(event.key)
+                elif event.type == pygame.KEYUP:
+                    if event.key in self.keypad.key_map:
+                        self.keypad.key_released(event.key)
         pygame.quit()
-
-# def main():
-#     e = emulator(60, "./roms/IBM")
-#     e.start_emulator_loop()
-
-# if __name__ == "__main__":
-#     main()

@@ -13,11 +13,11 @@ class keyboard:
         }
         self.keys = [0] * 16
 
-    def key_pressed(self, pygame_key_event):
-        self.keys[self.key_map[pygame_key_event.key]] = KEY_DOWN
+    def key_pressed(self, key):
+        self.keys[self.key_map[key]] = KEY_DOWN
 
-    def key_released(self, pygame_key_event):
-        self.keys[self.key_map[pygame_key_event.key]] = KEY_UP
+    def key_released(self, key):
+        self.keys[self.key_map[key]] = KEY_UP
 
     def get_value_from_key(self, value):
         return self.keys[value]
